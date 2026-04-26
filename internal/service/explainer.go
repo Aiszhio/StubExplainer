@@ -9,10 +9,10 @@ import (
 
 // ExplainerService coordinates message processing and explanation retrieval.
 type ExplainerService struct {
-	storage *storage.MemoryStorage
+	storage storage.ExplanationStorage
 }
 
-func NewExplainerService(storage *storage.MemoryStorage) *ExplainerService {
+func NewExplainerService(storage storage.ExplanationStorage) *ExplainerService {
 	return &ExplainerService{
 		storage: storage,
 	}
