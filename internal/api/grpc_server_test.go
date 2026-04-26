@@ -4,14 +4,16 @@ import (
 	"context"
 	"testing"
 
+	"github.com/Aiszhio/StubExplainer/internal/metrics"
 	"github.com/Aiszhio/StubExplainer/internal/service"
 	"github.com/Aiszhio/StubExplainer/internal/storage"
 	explainerv1 "github.com/Aiszhio/StubExplainer/pkg/gen/explainer/v1"
 )
 
 func TestGRPCServerGetExplanation(t *testing.T) {
+	metricsRecorder := metrics.New()
 	memoryStorage := storage.NewMemoryStorage()
-	explainerService := service.NewExplainerService(memoryStorage)
+	explainerService := service.NewExplainerService(memoryStorage, metricsRecorder)
 
 	message := []byte(`{
 		"incident_id": "inc_1001",
