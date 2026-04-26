@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/Aiszhio/StubExplainer/internal/metrics"
 	"github.com/Aiszhio/StubExplainer/internal/service"
 	"github.com/Aiszhio/StubExplainer/internal/storage"
 )
 
 func main() {
 	memoryStorage := storage.NewMemoryStorage()
-	explainerService := service.NewExplainerService(memoryStorage)
+	explainerService := service.NewExplainerService(memoryStorage, metrics.Noop{})
 
 	message := []byte(`{
 		"incident_id": "inc_1001",
