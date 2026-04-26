@@ -7,22 +7,25 @@ import (
 	"time"
 
 	reader "github.com/Aiszhio/StubExplainer/internal/kafka"
+	"github.com/Aiszhio/StubExplainer/internal/metrics"
 	"github.com/Aiszhio/StubExplainer/internal/service"
 	"github.com/Aiszhio/StubExplainer/pkg/config"
 )
 
 // Runner owns the background Kafka consumption loop.
 type Runner struct {
-	consumer *reader.Consumer
-	service  *service.ExplainerService
+	consumer reader.BatchReader
+	service  service.Processor
+	metrics  metrics.Recorder
 	cfg      config.Config
 	logg     *log.Logger
 }
 
-func NewRunner(consumer *reader.Consumer, service *service.ExplainerService, cfg config.Config, logg *log.Logger) *Runner {
+func NewRunner(consumer reader.BatchReader, service service.Processor, metrics metrics.Recorder, cfg config.Config, logg *log.Logger) *Runner {
 	return &Runner{
 		consumer: consumer,
 		service:  service,
+		metrics:  metrics,
 		cfg:      cfg,
 		logg:     logg,
 	}
@@ -44,6 +47,7 @@ func (r *Runner) Run(ctx context.Context) {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				continue
 			}
+			r.metrics.ObserveKafkaReadError()
 			r.logg.Printf("failed to read kafka batch: %v", err)
 			time.Sleep(time.Second)
 			continue
@@ -53,11 +57,14 @@ func (r *Runner) Run(ctx context.Context) {
 			continue
 		}
 
+		startedAt := time.Now()
 		if err := r.service.ProcessBatch(messages); err != nil {
+			r.metrics.ObserveProcessError()
 			r.logg.Printf("failed to process batch: %v", err)
 			continue
 		}
 
+		r.metrics.ObserveBatchSaved(len(messages), time.Since(startedAt))
 		r.logg.Printf("saved batch: size=%d", len(messages))
 	}
 }
