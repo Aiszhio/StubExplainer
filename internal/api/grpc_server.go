@@ -9,10 +9,10 @@ import (
 
 // GRPCServer implements the generated-like ExplainerServiceServer contract.
 type GRPCServer struct {
-	service *service.ExplainerService
+	service service.Reader
 }
 
-func NewGRPCServer(service *service.ExplainerService) *GRPCServer {
+func NewGRPCServer(service service.Reader) *GRPCServer {
 	return &GRPCServer{service: service}
 }
 
