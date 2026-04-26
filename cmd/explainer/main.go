@@ -33,7 +33,7 @@ func main() {
 	}
 	defer clickHouseStorage.Close()
 
-	explainerService := service.NewExplainerService(clickHouseStorage)
+	explainerService := service.NewExplainerService(clickHouseStorage, metricsRecorder)
 	kafkaConsumer := reader.NewConsumer(cfg.KafkaBrokers, cfg.KafkaTopic, cfg.KafkaGroupID)
 	defer kafkaConsumer.Close()
 
