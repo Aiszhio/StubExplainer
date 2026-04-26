@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package explainer.v1;
+
+option go_package = "github.com/Aiszhio/StubExplainer/pkg/gen/explainer/v1;explainerv1";
+
+service ExplainerService {
+  rpc GetExplanation(GetExplanationRequest) returns (GetExplanationResponse);
+}
+
+message GetExplanationRequest {
+  string incident_id = 1;
+}
+
+message GetExplanationResponse {
+  Explanation explanation = 1;
+}
+
+message Explanation {
+  string incident_id = 1;
+  string user_id = 2;
+  string decision = 3;
+  double score = 4;
+  repeated FeatureImpact features = 5;
+  string created_at = 6;
+}
+
+message FeatureImpact {
+  string name = 1;
+  string value = 2;
+  double weight = 3;
+}
