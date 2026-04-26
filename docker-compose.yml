@@ -1,6 +1,7 @@
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.7.1
+    restart: unless-stopped
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -9,6 +10,7 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.7.1
+    restart: unless-stopped
     depends_on:
       - zookeeper
     ports:
@@ -29,6 +31,7 @@ services:
 
   clickhouse:
     image: clickhouse/clickhouse-server:24.8
+    restart: unless-stopped
     ports:
       - "8123:8123"
       - "9000:9000"
@@ -46,6 +49,7 @@ services:
 
   explainer:
     build: .
+    restart: unless-stopped
     depends_on:
       kafka:
         condition: service_healthy
@@ -67,6 +71,7 @@ services:
 
   prometheus:
     image: prom/prometheus:v2.55.1
+    restart: unless-stopped
     depends_on:
       - explainer
     ports:
@@ -76,10 +81,11 @@ services:
 
   grafana:
     image: grafana/grafana:11.0.0
+    restart: unless-stopped
     depends_on:
       - prometheus
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
