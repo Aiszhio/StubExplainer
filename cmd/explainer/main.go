@@ -12,6 +12,7 @@ import (
 	"github.com/Aiszhio/StubExplainer/internal/api"
 	"github.com/Aiszhio/StubExplainer/internal/consumer"
 	reader "github.com/Aiszhio/StubExplainer/internal/kafka"
+	"github.com/Aiszhio/StubExplainer/internal/metrics"
 	"github.com/Aiszhio/StubExplainer/internal/service"
 	"github.com/Aiszhio/StubExplainer/internal/storage"
 	"github.com/Aiszhio/StubExplainer/pkg/config"
@@ -21,6 +22,7 @@ import (
 func main() {
 	logg := logger.New()
 	cfg := config.Load()
+	metricsRecorder := metrics.New()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -35,15 +37,16 @@ func main() {
 	kafkaConsumer := reader.NewConsumer(cfg.KafkaBrokers, cfg.KafkaTopic, cfg.KafkaGroupID)
 	defer kafkaConsumer.Close()
 
-	consumerRunner := consumer.NewRunner(kafkaConsumer, explainerService, cfg, logg)
+	consumerRunner := consumer.NewRunner(kafkaConsumer, explainerService, metricsRecorder, cfg, logg)
 	go consumerRunner.Run(ctx)
 
 	grpcServer := api.NewGRPCServer(explainerService)
 	grpcClient := api.NewLocalClient(grpcServer)
-	httpGateway := api.NewHTTPGateway(grpcClient)
+	httpGateway := api.NewHTTPGateway(grpcClient, metricsRecorder)
 
 	mux := http.NewServeMux()
 	httpGateway.Register(mux)
+	mux.Handle("/metrics", metricsRecorder.Handler())
 
 	httpServer := &http.Server{
 		Addr:              cfg.HTTPAddr,
