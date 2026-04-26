@@ -18,6 +18,9 @@ type Config struct {
 	ClickHouseUsername string
 	ClickHousePassword string
 
+	GRPCAddr string
+	HTTPAddr string
+
 	BatchSize     int
 	BatchInterval time.Duration
 }
@@ -31,6 +34,8 @@ func Load() Config {
 		ClickHouseDatabase: getEnv("CLICKHOUSE_DATABASE", "default"),
 		ClickHouseUsername: getEnv("CLICKHOUSE_USERNAME", "default"),
 		ClickHousePassword: getEnv("CLICKHOUSE_PASSWORD", ""),
+		GRPCAddr:           getEnv("GRPC_ADDR", ":50051"),
+		HTTPAddr:           getEnv("HTTP_ADDR", ":8080"),
 		BatchSize:          intEnv("BATCH_SIZE", 100),
 		BatchInterval:      time.Duration(intEnv("BATCH_INTERVAL_MS", 10)) * time.Millisecond,
 	}
