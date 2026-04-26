@@ -4,33 +4,81 @@ Minimal Go implementation of an explainer service for demonstration purposes.
 
 The service shows the main functional flow:
 
-1. Accumulate a batch of raw messages.
-2. Deserialize message data.
-3. Run primary validation and initialization.
-4. Save explanations into storage.
-5. Read an explanation by incident ID.
-
-The current storage implementation is in-memory and is intended only for demonstration. In the target system it can be replaced with ClickHouse storage without changing the service flow.
+1. Read raw explanation messages from Kafka.
+2. Accumulate messages into a batch.
+3. Deserialize message data.
+4. Run primary validation and initialization.
+5. Save explanations into ClickHouse.
+6. Read an explanation by incident ID through the service layer.
 
 ## Project structure
 
 ```text
-cmd/explainer/main.go          Demo entrypoint
-internal/model                 Domain models
-internal/ingest                Message parsing
-internal/validate              Validation and initialization
-internal/storage               Storage implementation
-internal/service               Service layer
+api/proto                       gRPC/Protobuf contract
+cmd/demo                        In-memory demo entrypoint
+cmd/explainer                   Kafka + ClickHouse service entrypoint
+internal/ingest                 Message parsing
+internal/kafka                  Kafka consumer
+internal/model                  Domain models
+internal/service                Service layer
+internal/storage                Storage interfaces and implementations
+internal/validate               Validation and initialization
+migrations                      ClickHouse migrations
+pkg/config                      Runtime config
+pkg/logger                      Logger helper
 ```
 
-## Run
+## Run in-memory demo
 
 ```bash
-go run ./cmd/explainer
+go run ./cmd/demo
 ```
 
-## Test
+## Run tests
 
 ```bash
 go test ./...
+```
+
+## Run infrastructure and service
+
+```bash
+docker compose up --build
+```
+
+## Send test message to Kafka
+
+```bash
+docker compose exec kafka kafka-console-producer \
+  --bootstrap-server kafka:29092 \
+  --topic explanations
+```
+
+Example message:
+
+```json
+{"incident_id":"inc_1001","user_id":"user_501","decision":"blocked","score":0.97,"features":[{"name":"request_frequency","value":"high","weight":0.42},{"name":"device_fingerprint","value":"suspicious","weight":0.31}]}
+```
+
+## Check data in ClickHouse
+
+```bash
+docker compose exec clickhouse clickhouse-client \
+  --database explainer \
+  --query "SELECT incident_id, user_id, decision, score, features_json, created_at FROM explanations FORMAT Vertical"
+```
+
+## Configuration
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `KAFKA_BROKERS` | `localhost:9092` | Kafka broker list separated by commas |
+| `KAFKA_TOPIC` | `explanations` | Topic with explanation messages |
+| `KAFKA_GROUP_ID` | `stub-explainer` | Kafka consumer group ID |
+| `CLICKHOUSE_ADDR` | `localhost:9000` | ClickHouse native protocol address |
+| `CLICKHOUSE_DATABASE` | `default` | ClickHouse database name |
+| `CLICKHOUSE_USERNAME` | `default` | ClickHouse username |
+| `CLICKHOUSE_PASSWORD` | empty | ClickHouse password |
+| `BATCH_SIZE` | `100` | Maximum batch size |
+| `BATCH_INTERVAL_MS` | `10` | Batch flush interval in milliseconds |
 ```
