@@ -3,12 +3,13 @@ package service
 import (
 	"testing"
 
+	"github.com/Aiszhio/StubExplainer/internal/metrics"
 	"github.com/Aiszhio/StubExplainer/internal/storage"
 )
 
 func TestProcessAndGetExplanation(t *testing.T) {
 	storage := storage.NewMemoryStorage()
-	service := NewExplainerService(storage)
+	service := NewExplainerService(storage, metrics.Noop{})
 
 	message := []byte(`{
 		"incident_id": "inc_1001",
