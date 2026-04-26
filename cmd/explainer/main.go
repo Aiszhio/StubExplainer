@@ -2,13 +2,15 @@ package main
 
 import (
 	"context"
-	"errors"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/Aiszhio/StubExplainer/internal/api"
+	"github.com/Aiszhio/StubExplainer/internal/consumer"
 	reader "github.com/Aiszhio/StubExplainer/internal/kafka"
 	"github.com/Aiszhio/StubExplainer/internal/service"
 	"github.com/Aiszhio/StubExplainer/internal/storage"
@@ -30,38 +32,41 @@ func main() {
 	defer clickHouseStorage.Close()
 
 	explainerService := service.NewExplainerService(clickHouseStorage)
-	consumer := reader.NewConsumer(cfg.KafkaBrokers, cfg.KafkaTopic, cfg.KafkaGroupID)
-	defer consumer.Close()
+	kafkaConsumer := reader.NewConsumer(cfg.KafkaBrokers, cfg.KafkaTopic, cfg.KafkaGroupID)
+	defer kafkaConsumer.Close()
 
-	logg.Printf("service started: topic=%s brokers=%v batch_size=%d batch_interval=%s", cfg.KafkaTopic, cfg.KafkaBrokers, cfg.BatchSize, cfg.BatchInterval)
+	consumerRunner := consumer.NewRunner(kafkaConsumer, explainerService, cfg, logg)
+	go consumerRunner.Run(ctx)
 
-	for {
-		select {
-		case <-ctx.Done():
-			logg.Println("service stopped")
-			return
-		default:
-		}
+	grpcServer := api.NewGRPCServer(explainerService)
+	grpcClient := api.NewLocalClient(grpcServer)
+	httpGateway := api.NewHTTPGateway(grpcClient)
 
-		messages, err := consumer.ReadBatch(ctx, cfg.BatchSize, cfg.BatchInterval)
-		if err != nil {
-			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				continue
-			}
-			logg.Printf("failed to read kafka batch: %v", err)
-			time.Sleep(time.Second)
-			continue
-		}
+	mux := http.NewServeMux()
+	httpGateway.Register(mux)
 
-		if len(messages) == 0 {
-			continue
-		}
-
-		if err := explainerService.ProcessBatch(messages); err != nil {
-			logg.Printf("failed to process batch: %v", err)
-			continue
-		}
-
-		logg.Printf("saved batch: size=%d", len(messages))
+	httpServer := &http.Server{
+		Addr:              cfg.HTTPAddr,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
 	}
+
+	go func() {
+		logg.Printf("http gateway started: addr=%s", cfg.HTTPAddr)
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logg.Printf("http gateway error: %v", err)
+			stop()
+		}
+	}()
+
+	<-ctx.Done()
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		logg.Printf("http gateway shutdown error: %v", err)
+	}
+
+	logg.Println("service stopped")
 }
