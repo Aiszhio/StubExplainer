@@ -7,8 +7,8 @@ CREATE TABLE IF NOT EXISTS explainer.explanations
     decision LowCardinality(String),
     score Float64,
     features_json String,
-    created_at DateTime64(3, 'UTC'),
-    ingested_at DateTime64(3, 'UTC') DEFAULT now64(3)
+    created_at DateTime('UTC'),
+    ingested_at DateTime('UTC') DEFAULT now()
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMM(created_at)
